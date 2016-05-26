@@ -1,0 +1,11 @@
+---
+   - name: Install mongodb-server mongodb-clients python-pymongo in controller node
+     apt: name=mongodb-server state=present force=yes
+   - apt: name=mongodb-clients state=present force=yes
+   - apt: name=python-pymongo state=present force=yes
+#  - shell: rm /var/lib/mongodb/journal/prealloc.*
+#   name: Restart MONGODB
+   - service: name=mongodb state=stopped
+   - service: name=mongodb state=started
+
+

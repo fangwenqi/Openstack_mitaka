@@ -1,0 +1,93 @@
+---
+    - mysql_db: name=nova_api state=present
+    - mysql_db: name=nova state=present
+    - shell: mysql -e "GRANT ALL PRIVILEGES ON nova_api.* TO 'nova'@'localhost' IDENTIFIED BY 'pramati123';"
+    - shell: mysql -e "GRANT ALL PRIVILEGES ON nova_api.* TO 'nova'@'%'  IDENTIFIED BY 'pramati123';"
+    - shell: mysql -e "GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'localhost' IDENTIFIED BY 'pramati123';"
+    - shell: mysql -e "GRANT ALL PRIVILEGES ON nova.* TO 'nova'@'%'  IDENTIFIED BY 'pramati123';"
+    - copy: src=/etc/ansible/playbooks/roles/templates/nova.prerequisites.sh dest=/root
+    - name: create roles user endpoints
+      shell: bash /root/nova.prerequisites.sh
+    - name: Install nova services,nova-api,nova-conductor,nova-consoleauth,nova-novncproxy nova-scheduler on controller node
+      apt: name={{ item }}  state=present force=yes
+      with_items:
+      - nova-api
+      - nova-conductor
+      - nova-consoleauth
+      - nova-novncproxy
+      - nova-scheduler
+    - name: Update database connection address in nova.conf
+      ini_file: dest=/etc/nova/nova.conf
+                section=DEFAULT
+                option={{ item.name }}
+                value={{ item.value }}
+      with_items:
+      - { name: 'enabled_apis' , value: 'osapi_compute,metadata' }
+      - { name: 'rpc_backend' , value: 'rabbit' }
+      - { name: 'auth_strategy' , value: 'keystone' }
+      - { name: 'my_ip' , value: '172.16.20.96' }
+      - { name: 'use_neutron' , value: 'True' }
+      - { name: 'firewall_driver' , value: 'nova.virt.firewall.NoopFirewallDriver' }
+    - name: Update api_database connection address in nova.conf
+      ini_file: dest=/etc/nova/nova.conf
+                section=api_database
+                option=connection 
+                value=mysql+pymysql://nova:pramati123@controller/nova_api
+    - name: Update database connection address in nova.conf
+      ini_file: dest=/etc/nova/nova.conf
+                 section=database
+                 option=connection 
+                 value=mysql+pymysql://nova:pramati123@controller/nova
+    - name: Update oslo_messaging_rabbit in nova.conf
+      ini_file: dest=/etc/nova/nova.conf
+                section=oslo_messaging_rabbit
+                option={{ item.name }}
+                value={{ item.value }}
+      with_items:
+       - { name: 'rabbit_host' , value: 'controller' }
+       - { name: 'rabbit_userid' , value: 'openstack' }
+       - { name: 'rabbit_password', value: 'pramati123' }
+    - name: Update keystone_authtoken innova.conf
+      ini_file: dest=/etc/nova/nova.conf
+                 section=keystone_authtoken
+                 option={{ item.name }}
+                 value={{ item.value }}
+      with_items:
+       - { name: 'auth_uri' , value: 'http://controller:5000' }
+       - { name: 'auth_url' , value: 'http://controller:35357' }
+       - { name: 'memcached_servers' , value: 'controller:11211' }
+       - { name: 'auth_type' , value: 'password' }
+       - { name: 'project_domain_name' , value: 'default' }
+       - { name: 'user_domain_name' , value: 'default' }
+       - { name: 'project_name' , value: 'service' }
+       - { name: 'username' , value: 'nova' }
+       - { name: 'password' , value: 'pramati123' }
+    - name: Update glance values in nova.conf
+      ini_file: dest=/etc/nova/nova.conf
+                 section=glance
+                 option=api_servers
+                 value=http://controller:9292
+    - name: Update vnc in glance.conf
+      ini_file: dest=/etc/nova/nova.conf
+                 section=glance
+                 option=api_servers
+                 value=http://controller:9292
+    - name: Update vnc in glance.conf
+      ini_file: dest=/etc/nova/nova.conf
+                 section=oslo_concurrency
+                 option=lock_path
+                 value=/var/lib/nova/tmp
+    - name: nova-api db sync in controller node
+      shell: su -s /bin/sh -c "nova-manage api_db sync" nova
+    - name: nova-db sync in controller node
+      shell: su -s /bin/sh -c "nova-manage db sync" nova
+    - name: Service restart for nova-api restart
+      service: name=nova-api state=restarted
+    - name: Service restart for nova-consoleauth restart
+      service: name=nova-consoleauth state=restarted
+    - name: Service restart for nova-scheduler restart
+      service: name=nova-scheduler state=restarted
+    - name: Service restart for nova-conductor restart
+      service: name=nova-conductor state=restarted
+    - name: Service restart for nova-novncproxy  restart
+      service: name=nova-novncproxy state=restarted

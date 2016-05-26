@@ -1,0 +1,85 @@
+---
+   - mysql_db: name=glance state=present
+   - shell: mysql -e "GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'localhost' IDENTIFIED BY 'pramati123';"
+   - shell: mysql -e "GRANT ALL PRIVILEGES ON glance.* TO 'glance'@'%'  IDENTIFIED BY 'pramati123';"
+   - name: copy admin-openrc to remote host
+     copy: src=/etc/ansible/playbooks/roles/templates/admin-openrc dest=/root
+   - name: copy demo-openrc to remote host
+     copy: src=/etc/ansible/playbooks/roles/templates/demo-openrc dest=/root
+   - name: copy glance.prerequisites.sh to remote host
+     copy: src=/etc/ansible/playbooks/roles/templates/glance.prerequisites.sh dest=/root
+   - name: create roles user endpoints and verify operations
+     shell: bash /root/glance.prerequisites.sh
+   - name: Install glance in controller node
+     apt: name=glance state=present force=yes
+   - name: Update database connection address in glance.conf
+     ini_file: dest=/etc/glance/glance-api.conf
+                 section=database
+                 option=connection 
+                 value=mysql+pymysql://glance:pramati123@controller/glance
+                 backup=yes
+   - name: Update keystone values in glance.conf
+     ini_file: dest=/etc/glance/glance-api.conf
+             section=keystone_authtoken
+             option={{ item.name }}
+             value={{ item.value }}
+     with_items:
+     - { name: 'auth_uri' , value: 'http://controller:5000' }
+     - { name: 'auth_url' , value: 'http://controller:35357' }
+     - { name: 'memcached_servers', value: 'controller:11211' }
+     - { name: 'auth_type' , value: 'password' }
+     - { name: 'project_domain_name' , value: 'default' }
+     - { name: 'user_domain_name' , value: 'default' }
+     - { name: 'project_name', value: 'service' }
+     - { name: 'username' , value: 'glance' }
+     - { name: 'password' , value: 'pramati123' }
+   - name: Update paste deploy in glance.conf
+     ini_file: dest=/etc/glance/glance-api.conf
+                 section=paste_deploy
+                 option=flavor
+                 value=keystone
+                 backup=yes
+   - name: Update glance store in glance.conf
+     ini_file: dest=/etc/glance/glance-api.conf
+                 section=glance_store
+                 option={{ item.name }}
+                 value={{ item.value }}
+     with_items:
+     - { name: 'stores' , value: 'file,http' }
+     - { name: 'default_store' , value: 'file' }
+     - { name: 'filesystem_store_datadir' , value: '/var/lib/glance/images/' }
+   - name: Update database connection address in glance-registry.conf
+     ini_file: dest=/etc/glance/glance-registry.conf 
+                 section=database
+                 option=connection
+                 value=mysql+pymysql://glance:pramati123@controller/glance
+                 backup=yes
+   - name: Update keystone values in glance.conf
+     ini_file: dest=/etc/glance/glance-registry.conf 
+             section=keystone_authtoken
+             option={{ item.name }}
+             value={{ item.value }}
+     with_items:
+     - { name: 'auth_uri' , value: 'http://controller:5000' }
+     - { name: 'auth_url' , value: 'http://controller:35357' }
+     - { name: 'memcached_servers', value: 'controller:11211' }
+     - { name: 'auth_type' , value: 'password' }
+     - { name: 'project_domain_name' , value: 'default' }
+     - { name: 'user_domain_name' , value: 'default' }
+     - { name: 'project_name', value: 'service' }
+     - { name: 'username' , value: 'glance' }
+     - { name: 'password' , value: 'pramati123' }
+   - name: Update paste deploy in glance.conf
+     ini_file: dest=/etc/glance/glance-registry.conf
+                 section=paste_deploy
+                 option=flavor
+                 value=keystone
+   - name: glance db sync in controller node
+     shell: su -s /bin/sh -c "glance-manage db_sync" glance
+   - name: Service restart for glance-registry
+     service: name=glance-registry state=restarted       
+   - name: Service restart for glance-api
+     service: name=glance-api state=restarted
+#  verify operations for glance
+   - copy: src=/etc/ansible/playbooks/roles/templates/glance.imageupload.sh dest=/root
+   - shell: bash /root/glance.imageupload.sh

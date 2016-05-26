@@ -1,0 +1,17 @@
+---
+# - include: createrepo.yaml
+  - hosts: 172.16.20.96
+    roles:
+    - { role: roles/mysql.mitaka }
+    - { role: roles/mongodb.mitaka }
+    - { role: roles/rabbitmq.mitaka }
+    - { role: roles/memcache.mitaka } 
+    - { role: roles/keystone.mitaka }
+    - { role: roles/glance.mitaka }
+    - { role: roles/nova.mitaka/controller.nova } 
+    - { role: roles/neutron.mitaka/controller.neutron }
+    - { role: roles/dashboard.mitaka }
+  - hosts: 172.16.20.116
+    roles:
+    - { role: roles/nova.mitaka/compute.nova }
+    - { role: roles/neutron.mitaka/compute.neutron }

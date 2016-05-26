@@ -1,0 +1,6 @@
+---
+   - name: Install memcached and python-memcache
+     apt: name=memcached state=present force=yes
+   - apt: name=python-memcache state=present force=yes
+   - name: Restart memcached
+     service: name=memcached state=restarted

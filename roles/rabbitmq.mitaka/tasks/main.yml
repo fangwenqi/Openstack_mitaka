@@ -1,0 +1,14 @@
+---
+   - name: Install rabbitmq-server in controller node
+     apt: name=rabbitmq-server state=present force=yes
+   - name: Restart rabbitmq
+     service: name=rabbitmq-server state=restarted
+   - name: Set RabbitMQ user and password in controller
+     rabbitmq_user: user=openstack
+                    password=pramati123
+                    tags=openstack,administrator
+                    vhost=/
+                    configure_priv=.*
+                    read_priv=.*
+                    write_priv=.*
+                    state=present

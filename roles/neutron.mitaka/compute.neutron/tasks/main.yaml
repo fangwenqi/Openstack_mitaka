@@ -1,0 +1,85 @@
+---
+     - name: Install networking on compute node
+       apt: name={{ item }}  state=present force=yes
+       with_items:
+       - neutron-linuxbridge-agent
+     - name: Updating  default section of SelfService Network neutron.conf
+       ini_file: dest=/etc/neutron/neutron.conf
+                 section=DEFAULT
+                 option={{ item.name }}
+                 value={{ item.value }}
+       with_items:
+       - { name: 'rpc_backend' , value: 'rabbit' }
+       - { name: 'auth_strategy' , value: 'keystone' }
+     - name: Updating oslo_messaging_rabbit section in SelfService Network neutron.conf
+       ini_file: dest=/etc/neutron/neutron.conf
+                 section=oslo_messaging_rabbit
+                 option={{ item.name }}
+                 value={{ item.value }}
+       with_items:
+       - { name: 'rabbit_host' , value: 'controller' }
+       - { name: 'rabbit_userid' , value: 'openstack' }
+       - { name: 'rabbit_password', value: 'pramati123' }
+     - name: Updating keystone_authtoken section in SelfService Network neutron.conf
+       ini_file: dest=/etc/neutron/neutron.conf
+                 section=keystone_authtoken
+                 option={{ item.name }}
+                 value={{ item.value }}
+       with_items:
+       - { name: 'auth_uri' , value: 'http://controller:5000' }
+       - { name: 'auth_url' , value: 'http://controller:35357' }
+       - { name: 'memcached_servers' , value: 'controller:11211' }
+       - { name: 'project_domain_name' , value: 'default' }
+       - { name: 'user_domain_name' , value: 'default' }
+       - { name: 'project_name' , value: 'service' }
+       - { name: 'username' , value: 'neutron' }
+       - { name: 'password' , value: 'pramati123' }
+       - { name: 'auth_type' , value: 'password' }
+     - name: Updating neutron section in SelfService Network neutron.conf 
+       ini_file: dest=/etc/nova/nova.conf
+                 section=neutron
+                 option={{ item.name }}
+                 value={{ item.value }}
+       with_items:
+       - { name: 'url' , value: 'http://controller:9696' }
+       - { name: 'auth_url' , value: 'http://controller:35357' }
+       - { name: 'auth_type' , value: 'password' }
+       - { name: 'project_domain_name' , value: 'default' }
+       - { name: 'user_domain_name' , value: 'default' }
+       - { name: 'region_name' , value: 'RegionOne' }
+       - { name: 'project_name' , value: 'service'}
+       - { name: 'username' , value: 'neutron' }
+       - { name: 'password' , value: 'pramati123' }
+     - name: Configuring securitygroup section in SelfService Network linuxbridge_agent.ini
+       ini_file: dest=/etc/neutron/plugins/ml2/linuxbridge_agent.ini
+                 section=securitygroup
+                 option={{ item.name }}
+                 value={{ item.value }}
+       with_items:
+       - { name: 'enable_security_group' , value: 'True' }
+       - { name: 'firewall_driver' , value: 'neutron.agent.linux.iptables_firewall.IptablesFirewallDriver' }
+     - name: Configuring securitygroup section in SelfService Network linuxbridge_agent.ini
+       ini_file: dest=/etc/neutron/plugins/ml2/linuxbridge_agent.ini
+                 section=linux_bridge
+                 option=physical_interface_mappings
+                 value=provider:eth1
+     - name: Configure vxlan section in SelfService Network linuxbridge_agent.ini
+       ini_file: dest=/etc/neutron/plugins/ml2/linuxbridge_agent.ini
+                 section=vxlan
+                 option={{ item.name }}
+                 value={{ item.value }}
+       with_items:
+       - { name: 'enable_vxlan' , value: 'True' }
+       - { name: 'local_ip' , value: '172.16.20.116' }
+       - { name: 'l2_population' , value: 'True' }
+     - name: Configure default section in nova.conf
+       ini_file: dest=/etc/neutron/plugins/ml2/linuxbridge_agent.in
+                 section=agent
+                 option={{ item.name }}
+                 value={{ item.value }}
+       with_items:
+       - { name: 'prevent_arp_spoofing' , value: 'True' }
+     - name: service neutron compute server restart
+       service: name=nova-compute state=restarted
+     - name: service neutron-linuxbridge-agent  restart
+       service: name=neutron-linuxbridge-agent state=restarted

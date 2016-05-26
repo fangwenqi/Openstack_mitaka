@@ -1,0 +1,17 @@
+---
+  - name: Install mariadb-server python-mysql in controller node
+    apt: name=mariadb-server state=present
+  - apt: name=python-pymysql state=present 
+  - file: path=/etc/mysql/conf.d/openstack.cnf state=touch mode=0655
+  - ini_file: dest=/etc/mysql/conf.d/openstack.cnf
+               section=mysqld
+               option={{ item.name }}
+               value={{ item.value }}
+    with_items:
+    - { name: 'bind-address' , value: '172.16.20.96' }
+    - { name: 'default-storage-engine' , value: 'innodb' }
+    - { name: 'collation-server' , value: 'utf8_general_ci' }
+    - { name: 'character-set-server' , value: 'utf8' }
+  - lineinfile: dest=/etc/mysql/conf.d/openstack.cnf line=innodb_file_per_table 
+  - name: Restart MySQL
+    service: name=mysql state=restarted

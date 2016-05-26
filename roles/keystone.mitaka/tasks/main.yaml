@@ -1,0 +1,51 @@
+---
+#    - apt: name=python-msqldb state=present force=yes
+     - mysql_db: name=keystone state=present
+#    - shell: mysql -u root -e 'CREATE DATABASE keystone;'
+     - shell: mysql -e "GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY 'pramati123';"
+     - shell: mysql -e "GRANT ALL PRIVILEGES ON keystone.* TO 'keystone'@'%'  IDENTIFIED BY 'pramati123';"
+     - name: Install keystone apache2 libapache2-mod-wsgi in controller node
+       apt: name=keystone state=present force=yes
+     - apt: name=apache2 state=present force=yes
+     - apt: name=libapache2-mod-wsgi state=present force=yes
+     - name: Disable keystone service from starting automatically after installation
+       shell: 'echo "manual" > /etc/init/keystone.override'
+     - name: Service keystone stop
+       service: name=keystone state=stopped
+     - name: Update /etc/keystone/keystone.conf
+       ini_file: dest=/etc/keystone/keystone.conf
+                   section=DEFAULT
+                   option=admin_token
+                   value=7d72ca47e1262b92f5c7
+                   backup=yes
+     - name: Update keystone.conf
+       ini_file: dest=/etc/keystone/keystone.conf
+                   section=database
+                   option=connection 
+                   value=mysql+pymysql://keystone:pramati123@controller/keystone
+                   backup=yes
+     - name: Update keystone.conf
+       ini_file: dest=/etc/keystone/keystone.conf
+                   section=token
+                   option=provider
+                   value=fernet
+                   backup=yes
+     - name: Keystone db sync in controller node
+       shell: su -s /bin/sh -c "keystone-manage db_sync" keystone
+     - name: keystone fernet keys
+       shell: keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone
+# Configure the Apache HTTP server
+     - name: Update ServerName in Apache config file
+       lineinfile: dest=/etc/apache2/apache2.conf  line='ServerName controller'
+     - name: Adding Apache2 sites-available wsgi-keystone.conf file
+       template: dest=/etc/apache2/sites-available/wsgi-keystone.conf src=/etc/ansible/playbooks/roles/templates/wsgi-keystone-conf.j2
+#    - shell: ln -s /etc/apache2/sites-available/wsgi-keystone.conf /etc/apache2/sites-enabled
+     - name: Service Apache2 stop
+       service: name=apache2 state=stopped
+     - name: Service Apache2 start
+       service: name=apache2 state=started
+     - shell: rm -f /var/lib/keystone/keystone.db
+     - name: copy service-entity-API.sh to remote host
+       copy: src=/etc/ansible/playbooks/roles/templates/service-entity-API.sh dest=/root
+     - name: create roles user endpoints
+       shell: bash /root/service-entity-API.sh

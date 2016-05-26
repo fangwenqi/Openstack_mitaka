@@ -1,0 +1,6 @@
+---
+    - name: Install Dashboard in controller node
+      apt:  name=openstack-dashboard state=present force=yes
+    - template: src=local_settings.py.j2 dest=/etc/openstack-dashboard/local_settings.py
+    - name: Installing the dashboard service
+      service: name=apache2  state=restarted
